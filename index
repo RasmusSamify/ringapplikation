@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Driving Dialer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Förhindrar att skärmen zoomar in när man dubbeltrycker av misstag i bilen */
+        body { touch-action: manipulation; }
+    </style>
+</head>
+<body class="bg-gray-900 text-white min-h-screen flex flex-col font-sans">
+
+    <header class="p-4 bg-gray-800 flex justify-between items-center shadow-md">
+        <h1 class="text-xl font-bold text-blue-400">🚗 Driving Dialer</h1>
+        <div class="flex items-center space-x-2">
+            <span class="text-sm text-gray-300">Manuell</span>
+            <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" id="modeToggle" class="sr-only peer">
+                <div class="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-500"></div>
+            </label>
+            <span class="text-sm text-blue-400 font-bold">Auto</span>
+        </div>
+    </header>
+
+    <main class="flex-grow flex flex-col justify-center items-center p-6 text-center" id="mainContent">
+        
+        <div id="startScreen" class="w-full">
+            <h2 class="text-3xl font-bold mb-4">Redo att börja ringa?</h2>
+            <p class="text-gray-400 mb-8">Du har 3 kunder i listan idag.</p>
+            <button onclick="startSession()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-6 px-4 rounded-2xl text-2xl shadow-lg transition transform active:scale-95">
+                ▶ Starta Passet
+            </button>
+        </div>
+
+        <div id="customerCard" class="hidden w-full flex-col items-center">
+            <div class="text-gray-400 mb-2 uppercase tracking-widest text-sm font-bold" id="customerProgress">Kund 1 av 3</div>
+            <h2 class="text-5xl font-extrabold mb-4" id="customerName">Kundnamn</h2>
+            <div class="bg-gray-800 p-6 rounded-xl w-full mb-8 shadow-inner border border-gray-700">
+                <p class="text-xl text-gray-300 italic" id="customerNote">"Notering här..."</p>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-4 w-full">
+                <button onclick="nextCustomer()" class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-4 px-4 rounded-xl text-xl transition">
+                    ⏭ Hoppa över
+                </button>
+                <button onclick="callCustomer()" id="callBtn" class="bg-green-500 hover:bg-green-400 text-white font-bold py-4 px-4 rounded-xl text-2xl shadow-[0_0_15px_rgba(34,197,94,0.5)] transition transform active:scale-95">
+                    📞 Ring
+                </button>
+            </div>
+        </div>
+
+        <div id="endScreen" class="hidden w-full">
+            <h2 class="text-4xl font-bold mb-4 text-green-400">Bra jobbat! 🎉</h2>
+            <p class="text-gray-400">Listan är tom för tillfället.</p>
+        </div>
+
+    </main>
+
+    <script>
+        // Vår testdata (Tills vi kopplar på Asana)
+        const customers = [
+            { name: "Anna Andersson", phone: "0701234567", note: "Följ upp offerten från i tisdags. Hon var positiv." },
+            { name: "Erik Svensson", phone: "0709876543", note: "Kolla om de fått in sin nya budget." },
+            { name: "Maria Nilsson", phone: "0734567890", note: "Viktig kund. Fråga hur det gick med deras lansering." }
+        ];
+
+        let currentIndex = 0;
+
+        // UI Element
+        const startScreen = document.getElementById('startScreen');
+        const customerCard = document.getElementById('customerCard');
+        const endScreen = document.getElementById('endScreen');
+        const modeToggle = document.getElementById('modeToggle');
+
+        function startSession() {
+            startScreen.classList.add('hidden');
+            customerCard.classList.remove('hidden');
+            customerCard.classList.add('flex');
+            renderCustomer();
+        }
+
+        function renderCustomer() {
+            if (currentIndex >= customers.length) {
+                customerCard.classList.add('hidden');
+                endScreen.classList.remove('hidden');
+                return;
+            }
+
+            const customer = customers[currentIndex];
+            document.getElementById('customerProgress').innerText = `Kund ${currentIndex + 1} av ${customers.length}`;
+            document.getElementById('customerName').innerText = customer.name;
+            document.getElementById('customerNote').innerText = customer.note;
+
+            // Läs upp texten via AI/TTS
+            speakText(`Nästa kund. ${customer.name}. Notering: ${customer.note}`);
+        }
+
+        function speakText(text) {
+            // Avbryt om något redan läses upp
+            window.speechSynthesis.cancel(); 
+            
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'sv-SE'; // Svensk röst
+            utterance.rate = 0.9;     // Lite lugnare tempo
+
+            utterance.onend = () => {
+                // Om "Auto" är ikryssat, öppna telefonappen direkt när rösten tystnar
+                if (modeToggle.checked) {
+                    callCustomer();
+                }
+            };
+
+            window.speechSynthesis.speak(utterance);
+        }
+
+        function callCustomer() {
+            const customer = customers[currentIndex];
+            // Öppnar telefonens uppringare
+            window.location.href = `tel:${customer.phone}`;
+            
+            // I en riktig app vill vi kanske vänta lite innan vi hoppar till nästa, 
+            // men för test lägger vi upp nästa direkt efter att "tel:" anropats.
+            setTimeout(() => {
+                nextCustomer();
+            }, 2000); 
+        }
+
+        function nextCustomer() {
+            window.speechSynthesis.cancel(); // Tysta rösten om man hoppar över
+            currentIndex++;
+            renderCustomer();
+        }
+    </script>
+</body>
+</html>
